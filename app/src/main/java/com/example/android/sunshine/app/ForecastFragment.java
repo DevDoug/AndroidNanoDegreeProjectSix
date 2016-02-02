@@ -327,6 +327,7 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     @Override
     public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
         mForecastAdapter.swapCursor(data);
+        ((MainActivity)getContext()).mGoogleApiClient.connect();
         updateEmptyView();
         if ( data.getCount() == 0 ) {
             getActivity().supportStartPostponedEnterTransition();
