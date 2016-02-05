@@ -25,8 +25,10 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.graphics.Shader;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -55,7 +57,12 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
      */
     private static final int MSG_UPDATE_TIME = 0;
 
-    Bitmap mSunshineBitmap;
+    private Bitmap mSunshineBitmap;
+    private static final int[] mClockNumbers = new int[]{1,2,3,4,5,6,7,8,9,10,11,12};
+    private Bitmap[] mWeatherIcons;
+    public int mClockNumberPadding = 30;
+    public int mIconScaleFactor = 6;
+    public boolean mInit = true;
 
     @Override
     public Engine onCreateEngine() {
@@ -87,6 +94,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
         Paint mHandPaint;
+        Paint mNumbersPaint;
         boolean mAmbient;
         Time mTime;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
@@ -123,10 +131,16 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             mBackgroundPaint.setColor(resources.getColor(R.color.primary));
 
             mHandPaint = new Paint();
-            mHandPaint.setColor(resources.getColor(R.color.analog_hands));
+            mHandPaint.setShader(new LinearGradient(0, 0, 0, 200, resources.getColor(R.color.sunshine_yellow), resources.getColor(R.color.sunshine_yellow_light), Shader.TileMode.MIRROR));
+            //mHandPaint.setColor(resources.getColor(R.color.analog_hands));
             mHandPaint.setStrokeWidth(resources.getDimension(R.dimen.analog_hand_stroke));
             mHandPaint.setAntiAlias(true);
             mHandPaint.setStrokeCap(Paint.Cap.ROUND);
+
+            mNumbersPaint = new Paint();
+            mNumbersPaint.setColor(resources.getColor(R.color.watch_number_color));
+            mNumbersPaint.setStrokeWidth(resources.getDimension(R.dimen.analog_hand_stroke));
+            mNumbersPaint.setTextSize(16);
 
             mTime = new Time();
         }
@@ -201,7 +215,23 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 canvas.drawRect(0, 0, canvas.getWidth(), canvas.getHeight(), mBackgroundPaint);
             }
 
-            mSunshineBitmap = Bitmap.createScaledBitmap(mSunshineBitmap, canvas.getWidth()/10, canvas.getHeight()/10, false);
+            if(mInit){ //if they are just going to the watch face grab our icons if extended this could be where you have different weather icon packs
+                mWeatherIcons = new Bitmap[]{
+                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_clear), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
+                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_clouds), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
+                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_fog), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
+                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_light_clouds), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
+                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_light_rain), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
+                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_rain), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
+                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_snow), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
+                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_storm), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
+                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_clear), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
+                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_clouds), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
+                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_fog), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
+                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_light_clouds), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
+                };
+                mInit = false;
+            }
 
             // Find the center. Ignore the window insets so that, on round watches with a
             // "chin", the watch face is centered on the entire screen, not just the usable
@@ -217,11 +247,19 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             float secLength = centerX - 20;
             float minLength = centerX - 40;
             float hrLength = centerX - 80;
+            float clockNumbersStartY = centerY - secLength;
+            //y = GetSin( i * deg + 90) * FaceRadius;
+
+            for(int i = 0; i < mClockNumbers.length; i++){
+                float clockNumbersX = GetCos( i * 30 + 90) * (centerY - mClockNumberPadding);
+                float clockNumbersY = GetSin(i * 30 + 90) * (centerY - mClockNumberPadding);
+                canvas.drawText(String.valueOf(mClockNumbers[i]),clockNumbersX + centerX,clockNumbersY + centerY,mNumbersPaint);
+            }
 
             if (!mAmbient) {
                 float secX = (float) Math.sin(secRot) * secLength;
                 float secY = (float) -Math.cos(secRot) * secLength;
-                canvas.drawLine(centerX, centerY, centerX + secX, centerY + secY, mHandPaint);
+                canvas.drawLine(centerX, centerY, centerX + secX , centerY + secY, mHandPaint);
             }
 
             float minX = (float) Math.sin(minRot) * minLength;
@@ -234,9 +272,18 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
             float hrBitmapX = (float) Math.sin(hrRot) * hrLength;
             float hrBitmapY = (float) -Math.cos(hrRot) * hrLength;
-            hrBitmapX += (hrBitmapX > centerX) ? -mSunshineBitmap.getWidth() : mSunshineBitmap.getWidth();
-            hrBitmapY += (hrBitmapY > centerY) ? -mSunshineBitmap.getHeight() : mSunshineBitmap.getHeight(); // if the hour is positive then
-            canvas.drawBitmap(mSunshineBitmap,centerX + hrBitmapX, centerY + hrBitmapY, null);
+
+            //hrBitmapX = hrBitmapX + mSunshineBitmap.getWidth()/2;//((hrBitmapX > centerX) ? mSunshineBitmap.getWidth()/2 : mSunshineBitmap.getWidth()/2);
+            hrBitmapY = hrY +  ((centerY + hrY > centerY) ? mSunshineBitmap.getHeight()/2: -mSunshineBitmap.getHeight()/2); // if the hour is positive then
+            canvas.drawBitmap(mWeatherIcons[0], centerX + hrX, centerY + hrY, null); //draw the sunshine icon as the arrow pointer
+        }
+
+        public float GetSin(float degAngle){
+            return (float) Math.sin(Math.PI * degAngle / 180);
+        }
+
+        public float GetCos(float degAngle){
+            return (float) Math.cos(Math.PI * degAngle / 180);
         }
 
         @Override
