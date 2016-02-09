@@ -41,10 +41,8 @@ public class Utility {
     }
 
     public static float getLocationLatitude(Context context) {
-        SharedPreferences prefs
-                = PreferenceManager.getDefaultSharedPreferences(context);
-        return prefs.getFloat(context.getString(R.string.pref_location_latitude),
-                DEFAULT_LATLONG);
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        return prefs.getFloat(context.getString(R.string.pref_location_latitude), DEFAULT_LATLONG);
     }
 
     public static float getLocationLongitude(Context context) {

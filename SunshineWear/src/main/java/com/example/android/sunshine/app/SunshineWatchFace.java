@@ -29,17 +29,30 @@ import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Shader;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
 import android.text.format.Time;
+import android.util.Log;
 import android.view.SurfaceHolder;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.ref.WeakReference;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Analog watch face with a ticking second hand. In ambient mode, the second hand isn't shown. On
@@ -57,12 +70,19 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
      */
     private static final int MSG_UPDATE_TIME = 0;
 
-    private Bitmap mSunshineBitmap;
-    private static final int[] mClockNumbers = new int[]{1,2,3,4,5,6,7,8,9,10,11,12};
-    private Bitmap[] mWeatherIcons;
+    private Bitmap mWeatherBitmap;
+    private final int[] mClockNumbers = new int[]{12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     public int mClockNumberPadding = 30;
     public int mIconScaleFactor = 6;
-    public boolean mInit = true;
+    public int mSunOffset = 80;
+    public final String LOG_TAG = SunshineWatchFace.class.getSimpleName();
+    public static float DEFAULT_LATLONG = 0F;
+    public String mDailyHighTemperature = "";
+    public String mDailyLowTemperature = "";
+    public int mTempHighLowOffset = 50;
+    public int weatherIconID = 0; //default to sun
+
+    Resources mResources;
 
     @Override
     public Engine onCreateEngine() {
@@ -95,6 +115,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         Paint mBackgroundPaint;
         Paint mHandPaint;
         Paint mNumbersPaint;
+        Paint mTemperaturePaint;
         boolean mAmbient;
         Time mTime;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
@@ -123,26 +144,29 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                     .setAcceptsTapEvents(true)
                     .build());
 
-            Resources resources = SunshineWatchFace.this.getResources();
-
-            mSunshineBitmap = BitmapFactory.decodeResource(resources, R.drawable.art_clear);
-
+            mResources = SunshineWatchFace.this.getResources();
             mBackgroundPaint = new Paint();
-            mBackgroundPaint.setColor(resources.getColor(R.color.primary));
+            mBackgroundPaint.setColor(mResources.getColor(R.color.primary));
 
             mHandPaint = new Paint();
-            mHandPaint.setShader(new LinearGradient(0, 0, 0, 200, resources.getColor(R.color.sunshine_yellow), resources.getColor(R.color.sunshine_yellow_light), Shader.TileMode.MIRROR));
             //mHandPaint.setColor(resources.getColor(R.color.analog_hands));
-            mHandPaint.setStrokeWidth(resources.getDimension(R.dimen.analog_hand_stroke));
+            mHandPaint.setStrokeWidth(mResources.getDimension(R.dimen.analog_hand_stroke));
             mHandPaint.setAntiAlias(true);
             mHandPaint.setStrokeCap(Paint.Cap.ROUND);
 
             mNumbersPaint = new Paint();
-            mNumbersPaint.setColor(resources.getColor(R.color.watch_number_color));
-            mNumbersPaint.setStrokeWidth(resources.getDimension(R.dimen.analog_hand_stroke));
-            mNumbersPaint.setTextSize(16);
+            mNumbersPaint.setColor(mResources.getColor(R.color.watch_number_color));
+            mNumbersPaint.setStrokeWidth(mResources.getDimension(R.dimen.analog_hand_stroke));
+            mNumbersPaint.setTextSize(20);
+
+            mTemperaturePaint = new Paint();
+            mTemperaturePaint.setColor(mResources.getColor(R.color.watch_number_color));
+            mTemperaturePaint.setTextSize(20);
 
             mTime = new Time();
+
+            LoadWeatherDataTask weatherDataTask = new LoadWeatherDataTask();
+            weatherDataTask.execute("");
         }
 
         @Override
@@ -195,7 +219,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                     break;
                 case TAP_TYPE_TAP:
 
-                    //Todo: On tap change the watch background and icons too match a different kind of weather
+                    //Todo: On tap change the current day while the count is less than seven after that we go back to the first day
                     // The user has completed the tap gesture.
 /*                    mTapCount++;
                     mBackgroundPaint.setColor(resources.getColor(mTapCount % 2 == 0 ? R.color.background : R.color.background2));*/
@@ -208,6 +232,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         public void onDraw(Canvas canvas, Rect bounds) {
             mTime.setToNow();
 
+            //move the sun more offscreen to indicate the setting sun so 80 will be noon or when the sun is fully up
+
             // Draw the background.
             if (isInAmbientMode()) {
                 canvas.drawColor(Color.BLACK);
@@ -215,23 +241,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 canvas.drawRect(0, 0, canvas.getWidth(), canvas.getHeight(), mBackgroundPaint);
             }
 
-            if(mInit){ //if they are just going to the watch face grab our icons if extended this could be where you have different weather icon packs
-                mWeatherIcons = new Bitmap[]{
-                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_clear), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
-                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_clouds), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
-                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_fog), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
-                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_light_clouds), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
-                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_light_rain), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
-                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_rain), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
-                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_snow), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
-                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_storm), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
-                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_clear), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
-                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_clouds), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
-                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_fog), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
-                        Bitmap.createScaledBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.art_light_clouds), canvas.getWidth()/mIconScaleFactor, canvas.getHeight()/mIconScaleFactor, false),
-                };
-                mInit = false;
-            }
+            if (mWeatherBitmap != null)
+                mWeatherBitmap = Bitmap.createScaledBitmap(mWeatherBitmap, canvas.getWidth() / mIconScaleFactor, canvas.getHeight() / mIconScaleFactor, false);
 
             // Find the center. Ignore the window insets so that, on round watches with a
             // "chin", the watch face is centered on the entire screen, not just the usable
@@ -244,45 +255,49 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             float minRot = minutes / 30f * (float) Math.PI;
             float hrRot = ((mTime.hour + (minutes / 60f)) / 6f) * (float) Math.PI;
 
-            float secLength = centerX - 20;
-            float minLength = centerX - 40;
-            float hrLength = centerX - 80;
-            float clockNumbersStartY = centerY - secLength;
-            //y = GetSin( i * deg + 90) * FaceRadius;
+            float secLength = centerX - 40;
+            float minLength = centerX - 60;
+            float hrLength = centerX - 100;
 
-            for(int i = 0; i < mClockNumbers.length; i++){
-                float clockNumbersX = GetCos( i * 30 + 90) * (centerY - mClockNumberPadding);
-                float clockNumbersY = GetSin(i * 30 + 90) * (centerY - mClockNumberPadding);
-                canvas.drawText(String.valueOf(mClockNumbers[i]),clockNumbersX + centerX,clockNumbersY + centerY,mNumbersPaint);
+            for (int i = 0; i < mClockNumbers.length; i++) {
+                float clockNumbersX = GetCos(i * 30 + 270) * (centerX - 20);
+                float clockNumbersY = GetSin(i * 30 + 270) * (centerY - mClockNumberPadding);
+                canvas.drawText(String.valueOf(mClockNumbers[i]), clockNumbersX + centerX, clockNumbersY + centerY, mNumbersPaint);
             }
 
             if (!mAmbient) {
                 float secX = (float) Math.sin(secRot) * secLength;
                 float secY = (float) -Math.cos(secRot) * secLength;
-                canvas.drawLine(centerX, centerY, centerX + secX , centerY + secY, mHandPaint);
+                mHandPaint.setShader(new LinearGradient(centerX + secX, centerY + secY, centerX, centerY, mResources.getColor(R.color.sunshine_yellow), mResources.getColor(R.color.sunshine_yellow_light), Shader.TileMode.MIRROR));
+                canvas.drawLine(centerX, centerY, centerX + secX, centerY + secY, mHandPaint);
             }
 
             float minX = (float) Math.sin(minRot) * minLength;
             float minY = (float) -Math.cos(minRot) * minLength;
+            mHandPaint.setShader(new LinearGradient(centerX + minX, centerY + minY, centerX, centerY, mResources.getColor(R.color.sunshine_yellow), mResources.getColor(R.color.sunshine_yellow_light), Shader.TileMode.MIRROR));
             canvas.drawLine(centerX, centerY, centerX + minX, centerY + minY, mHandPaint);
 
             float hrX = (float) Math.sin(hrRot) * hrLength;
             float hrY = (float) -Math.cos(hrRot) * hrLength;
+            mHandPaint.setShader(new LinearGradient(centerX + hrX, centerY + hrY, centerX, centerY, mResources.getColor(R.color.sunshine_yellow), mResources.getColor(R.color.sunshine_yellow_light), Shader.TileMode.MIRROR));
             canvas.drawLine(centerX, centerY, centerX + hrX, centerY + hrY, mHandPaint);
 
-            float hrBitmapX = (float) Math.sin(hrRot) * hrLength;
-            float hrBitmapY = (float) -Math.cos(hrRot) * hrLength;
+            float sunshineBitmapX = canvas.getWidth() - mSunOffset;
+            float sunshineBitmapY = canvas.getHeight() - mSunOffset;
 
-            //hrBitmapX = hrBitmapX + mSunshineBitmap.getWidth()/2;//((hrBitmapX > centerX) ? mSunshineBitmap.getWidth()/2 : mSunshineBitmap.getWidth()/2);
-            hrBitmapY = hrY +  ((centerY + hrY > centerY) ? mSunshineBitmap.getHeight()/2: -mSunshineBitmap.getHeight()/2); // if the hour is positive then
-            canvas.drawBitmap(mWeatherIcons[0], centerX + hrX, centerY + hrY, null); //draw the sunshine icon as the arrow pointer
+            if(mWeatherBitmap != null){
+                canvas.drawBitmap(mWeatherBitmap, sunshineBitmapX, sunshineBitmapY, null);
+            }
+
+            canvas.drawText(mDailyHighTemperature  + (char) 0x00B0,(centerX-25) - mTempHighLowOffset,centerY + mTempHighLowOffset, mTemperaturePaint);
+            canvas.drawText(mDailyLowTemperature  + (char) 0x00B0,(centerX -25) + mTempHighLowOffset,centerY + mTempHighLowOffset, mTemperaturePaint);
         }
 
-        public float GetSin(float degAngle){
+        public float GetSin(float degAngle) {
             return (float) Math.sin(Math.PI * degAngle / 180);
         }
 
-        public float GetCos(float degAngle){
+        public float GetCos(float degAngle) {
             return (float) Math.cos(Math.PI * degAngle / 180);
         }
 
@@ -351,6 +366,203 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 long delayMs = INTERACTIVE_UPDATE_RATE_MS
                         - (timeMs % INTERACTIVE_UPDATE_RATE_MS);
                 mUpdateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, delayMs);
+            }
+        }
+
+        private class LoadWeatherDataTask extends AsyncTask<String, Void, String> {
+
+            @Override
+            protected String doInBackground(String... string) {
+
+                String locationLatitude = String.valueOf(DEFAULT_LATLONG);
+                String locationLongitude = String.valueOf(DEFAULT_LATLONG);
+
+                // These two need to be declared outside the try/catch
+                // so that they can be closed in the finally block.
+                HttpURLConnection urlConnection = null;
+                BufferedReader reader = null;
+
+                // Will contain the raw JSON response as a string.
+                String forecastJsonStr = null;
+
+                String format = "json";
+                String units = "metric";
+                int numDays = 14;
+
+                try {
+                    // Construct the URL for the OpenWeatherMap query
+                    // Possible parameters are avaiable at OWM's forecast API page, at
+                    // http://openweathermap.org/API#forecast
+                    final String FORECAST_BASE_URL = "http://api.openweathermap.org/data/2.5/forecast/daily?";
+                    final String QUERY_PARAM = "q";
+                    final String LAT_PARAM = "lat";
+                    final String LON_PARAM = "lon";
+                    final String FORMAT_PARAM = "mode";
+                    final String UNITS_PARAM = "units";
+                    final String DAYS_PARAM = "cnt";
+                    final String APPID_PARAM = "APPID";
+
+                    Uri.Builder uriBuilder = Uri.parse(FORECAST_BASE_URL).buildUpon();
+
+                    uriBuilder.appendQueryParameter(LAT_PARAM, locationLatitude)
+                            .appendQueryParameter(LON_PARAM, locationLongitude);
+
+                    Uri builtUri = uriBuilder.appendQueryParameter(FORMAT_PARAM, format)
+                            .appendQueryParameter(UNITS_PARAM, units)
+                            .appendQueryParameter(DAYS_PARAM, Integer.toString(numDays))
+                            .appendQueryParameter(APPID_PARAM, "3b37debf4e1aba37f1a839423613be5b")
+                            .build();
+
+                    URL url = new URL(builtUri.toString());
+
+                    // Create the request to OpenWeatherMap, and open the connection
+                    urlConnection = (HttpURLConnection) url.openConnection();
+                    urlConnection.setRequestMethod("GET");
+                    urlConnection.connect();
+
+                    // Read the input stream into a String
+                    InputStream inputStream = urlConnection.getInputStream();
+                    StringBuffer buffer = new StringBuffer();
+                    if (inputStream == null) {
+                        // Nothing to do.
+                        return "";
+                    }
+                    reader = new BufferedReader(new InputStreamReader(inputStream));
+
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        // Since it's JSON, adding a newline isn't necessary (it won't affect parsing)
+                        // But it does make debugging a *lot* easier if you print out the completed
+                        // buffer for debugging.
+                        buffer.append(line + "\n");
+                    }
+
+                    if (buffer.length() == 0) {
+                        // Stream was empty.  No point in parsing.
+                        return "";
+                    }
+                    forecastJsonStr = buffer.toString();
+                    //getWeatherDataFromJson(forecastJsonStr, locationQuery);
+                } catch (IOException e) {
+                    Log.e(LOG_TAG, "Error ", e);
+                    // If the code didn't successfully get the weather data, there's no point in attempting
+                    // to parse it.
+                }  finally {
+                    if (urlConnection != null) {
+                        urlConnection.disconnect();
+                    }
+                    if (reader != null) {
+                        try {
+                            reader.close();
+                        } catch (final IOException e) {
+                            Log.e(LOG_TAG, "Error closing stream", e);
+                        }
+                    }
+                }
+                return forecastJsonStr;
+            }
+
+            @Override
+            public void onPostExecute(String result){
+                try {
+                    getWeatherDataFromJson(result);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            private void getWeatherDataFromJson(String forecastJsonStr) throws JSONException {
+                // Weather information.  Each day's forecast info is an element of the "list" array.
+                final String OWM_LIST = "list";
+
+                // All temperatures are children of the "temp" object.
+                final String OWM_TEMPERATURE = "temp";
+                final String OWM_MAX = "max";
+                final String OWM_MIN = "min";
+
+                final String OWM_WEATHER = "weather";
+                final String OWM_DESCRIPTION = "main";
+                final String OWM_WEATHER_ID = "id";
+
+                final String OWM_MESSAGE_CODE = "cod";
+
+                try {
+                    JSONObject forecastJson = new JSONObject(forecastJsonStr);
+
+                    // do we have an error?
+                    if (forecastJson.has(OWM_MESSAGE_CODE)) {
+                        int errorCode = forecastJson.getInt(OWM_MESSAGE_CODE);
+
+                        switch (errorCode) {
+                            case HttpURLConnection.HTTP_OK:
+                                break;
+                        }
+                    }
+
+                    JSONArray weatherArray = forecastJson.getJSONArray(OWM_LIST);
+
+                    for (int i = 0; i < weatherArray.length(); i++) {
+                        double high;
+                        double low;
+
+                        String description;
+                        int weatherId;
+
+                        // Get the JSON object representing the day
+                        JSONObject dayForecast = weatherArray.getJSONObject(i);
+
+                        // Description is in a child array called "weather", which is 1 element long.
+                        // That element also contains a weather code.
+                        JSONObject weatherObject = dayForecast.getJSONArray(OWM_WEATHER).getJSONObject(0);
+                        weatherId = weatherObject.getInt(OWM_WEATHER_ID);
+
+                        // Temperatures are in a child object called "temp".  Try not to name variables
+                        // "temp" when working with temperature.  It confuses everybody.
+                        JSONObject temperatureObject = dayForecast.getJSONObject(OWM_TEMPERATURE);
+                        high = temperatureObject.getDouble(OWM_MAX);
+                        low = temperatureObject.getDouble(OWM_MIN);
+                        mDailyHighTemperature = String.valueOf(high);
+                        mDailyLowTemperature = String.valueOf(low);
+
+                        int weatherIconId = getIconResourceForWeatherCondition(weatherId);
+                        if(weatherIconId != -1)
+                            mWeatherBitmap = BitmapFactory.decodeResource(mResources, weatherIconId);
+
+
+                    }
+                }catch (JSONException ex){
+
+                }
+            }
+
+            public int getIconResourceForWeatherCondition(int weatherId) {
+                // Based on weather code data found at:
+                // http://bugs.openweathermap.org/projects/api/wiki/Weather_Condition_Codes
+                if (weatherId >= 200 && weatherId <= 232) {
+                    return R.drawable.ic_storm;
+                } else if (weatherId >= 300 && weatherId <= 321) {
+                    return R.drawable.ic_light_rain;
+                } else if (weatherId >= 500 && weatherId <= 504) {
+                    mBackgroundPaint.setColor(mResources.getColor());
+                    return R.drawable.ic_rain;
+                } else if (weatherId == 511) {
+                    return R.drawable.ic_snow;
+                } else if (weatherId >= 520 && weatherId <= 531) {
+                    return R.drawable.ic_rain;
+                } else if (weatherId >= 600 && weatherId <= 622) {
+                    return R.drawable.ic_snow;
+                } else if (weatherId >= 701 && weatherId <= 761) {
+                    return R.drawable.ic_fog;
+                } else if (weatherId == 761 || weatherId == 781) {
+                    return R.drawable.ic_storm;
+                } else if (weatherId == 800) {
+                    return R.drawable.ic_clear;
+                } else if (weatherId == 801) {
+                    return R.drawable.ic_light_clouds;
+                } else if (weatherId >= 802 && weatherId <= 804) {
+                    return R.drawable.ic_cloudy;
+                }
+                return -1;
             }
         }
     }

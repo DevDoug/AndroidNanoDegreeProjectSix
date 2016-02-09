@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <!--Sunshine colors-->
     <color name="analog_hands">#33cccccc</color>
     <color name="primary">#03A9F4</color>
-    <color name="watch_number_color">#212121</color>
+    <color name="watch_number_color">#727272</color>
+
     <color name="sunshine_yellow">#FFEB3B</color>
-    <color name="sunshine_yellow_light">#FFF9C4</color>
+    <color name="sunshine_yellow_light">#FFF59D</color>
+
+
 </resources>
