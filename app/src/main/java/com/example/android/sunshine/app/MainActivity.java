@@ -38,6 +38,7 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
@@ -51,7 +52,7 @@ import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 
-public class MainActivity extends AppCompatActivity implements ForecastFragment.Callback, DataApi.DataListener,GoogleApiClient.ConnectionCallbacks,GoogleApiClient.OnConnectionFailedListener {
+public class MainActivity extends AppCompatActivity implements ForecastFragment.Callback,GoogleApiClient.ConnectionCallbacks,GoogleApiClient.OnConnectionFailedListener {
 
     private final String LOG_TAG = MainActivity.class.getSimpleName();
     private static final String DETAILFRAGMENT_TAG = "DFTAG";
@@ -178,7 +179,6 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
     @Override
     public void onPause(){
         super.onPause();
-        Wearable.DataApi.removeListener(mGoogleApiClient, this);
         mGoogleApiClient.disconnect();
     }
 
@@ -201,9 +201,7 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
             Intent intent = new Intent(this, DetailActivity.class)
                     .setData(contentUri);
 
-            ActivityOptionsCompat activityOptions =
-                    ActivityOptionsCompat.makeSceneTransitionAnimation(this,
-                            new Pair<View, String>(vh.mIconView, getString(R.string.detail_icon_transition_name)));
+            ActivityOptionsCompat activityOptions = ActivityOptionsCompat.makeSceneTransitionAnimation(this, new Pair<View, String>(vh.mIconView, getString(R.string.detail_icon_transition_name)));
             ActivityCompat.startActivity(this, intent, activityOptions.toBundle());
         }
     }
@@ -231,7 +229,21 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
 
     @Override
     public void onConnected(Bundle bundle) {
-        sendMessage(START_ACTIVITY, "Test");
+        PutDataMapRequest dataMap = PutDataMapRequest.create("/forcast");
+        dataMap.getDataMap().putInt("High temp",23);
+
+        PutDataRequest request = dataMap.asPutDataRequest();
+        Wearable.DataApi.putDataItem(mGoogleApiClient,request)
+                .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
+                    @Override
+                    public void onResult(DataApi.DataItemResult dataItemResult) {
+                        if(dataItemResult.getStatus().isSuccess()){
+                            //putting data to watch was successful
+                        } else if (!dataItemResult.getStatus().isSuccess()){
+                            //putting data to watch item failed
+                        }
+                    }
+                });
     }
 
     @Override
@@ -240,33 +252,7 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
     }
 
     @Override
-    public void onDataChanged(DataEventBuffer dataEvents) {
-
-    }
-
-    private void updateCount(int c) { c++;}
-
-    @Override
     public void onConnectionFailed(ConnectionResult connectionResult) {
         String result = connectionResult.getErrorMessage();
-    }
-
-    private void sendMessage( final String path, final String text ) {
-        new Thread( new Runnable() {
-            @Override
-            public void run() {
-                NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes( mGoogleApiClient ).await();
-                for(Node node : nodes.getNodes()) {
-                    MessageApi.SendMessageResult result = Wearable.MessageApi.sendMessage(mGoogleApiClient, node.getId(), path, text.getBytes() ).await();
-                }
-
-                runOnUiThread( new Runnable() {
-                    @Override
-                    public void run() {
-                        //mEditText.setText( "" );
-                    }
-                });
-            }
-        }).start();
     }
 }

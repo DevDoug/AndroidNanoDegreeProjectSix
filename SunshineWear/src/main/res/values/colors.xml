@@ -1,13 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!--Sunshine colors-->
-    <color name="analog_hands">#33cccccc</color>
-    <color name="primary">#03A9F4</color>
-    <color name="watch_number_color">#727272</color>
+    <!-- Rainy colors-->
+    <color name="primary_rainy">#212c3e</color>
+    <color name="watch_number_rainy_color">#727272</color>
+    <color name="watch_hands_rain_blue">#03A9F4</color>
+    <color name="watch_hands_rain_blue_light">#81D4FA</color>
 
-    <color name="sunshine_yellow">#FFEB3B</color>
-    <color name="sunshine_yellow_light">#FFF59D</color>
+    <!-- Stormy colors-->
+    <color name="primary_stormy">#2c2c2e</color>
+    <color name="watch_number_stormy_color">#727272</color>
+    <color name="watch_hands_storm_grey">#9E9E9E</color>
+    <color name="watch_hands_storm_white">#EEEEEE</color>
+
+    <!-- Cloudy colors-->
+    <color name="primary_cloudy">#2c2c2e</color>
+    <color name="watch_number_cloudy_color">#727272</color>
+    <color name="watch_hands_cloudy_grey">#9E9E9E</color>
+    <color name="watch_hands_cloudy_white">#EEEEEE</color>
+
+    <!-- Snowing colors -->
+    <color name="primary_snowing">#ffffff</color>
+    <color name="watch_number_snowing_color">#727272</color>
+    <color name="watch_hands_snowing_white">#ffffff</color>
+    <color name="watch_hands_snowing_white_light">#ffffff</color>
+
+    <!-- Foggy colors -->
+    <color name="primary_foggy">#ffffff</color>
+    <color name="watch_number_foggy_color">#727272</color>
+    <color name="watch_hands_foggy_white">#ffffff</color>
+    <color name="watch_hands_foggy_white_light">#ffffff</color>
+
+    <!--Sunshine colors-->
+    <color name="primary_sunny">#03A9F4</color>
+    <color name="watch_number_color">#727272</color>
+    <color name="watch_hands_sunshine_yellow">#FFEB3B</color>
+    <color name="watch_hands_sunshine_yellow_light">#FFF59D</color>
 
 
 </resources>

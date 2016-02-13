@@ -40,6 +40,9 @@ import android.text.format.Time;
 import android.util.Log;
 import android.view.SurfaceHolder;
 
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEventBuffer;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -77,10 +80,13 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
     public int mSunOffset = 80;
     public final String LOG_TAG = SunshineWatchFace.class.getSimpleName();
     public static float DEFAULT_LATLONG = 0F;
-    public String mDailyHighTemperature = "";
-    public String mDailyLowTemperature = "";
+    public String mDailyHighTemperature;
+    public String mDailyLowTemperature;
     public int mTempHighLowOffset = 50;
     public int weatherIconID = 0; //default to sun
+    public int mWatchHandDarkColor;
+    public int mWatchHandLightColor;
+
 
     Resources mResources;
 
@@ -109,7 +115,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         }
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine {
+    private class Engine extends CanvasWatchFaceService.Engine implements DataApi.DataListener {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
@@ -146,7 +152,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
             mResources = SunshineWatchFace.this.getResources();
             mBackgroundPaint = new Paint();
-            mBackgroundPaint.setColor(mResources.getColor(R.color.primary));
+            mBackgroundPaint.setColor(mResources.getColor(R.color.primary_sunny));
 
             mHandPaint = new Paint();
             //mHandPaint.setColor(resources.getColor(R.color.analog_hands));
@@ -167,6 +173,9 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
             LoadWeatherDataTask weatherDataTask = new LoadWeatherDataTask();
             weatherDataTask.execute("");
+
+            mWatchHandDarkColor = R.color.watch_hands_sunshine_yellow;
+            mWatchHandLightColor = R.color.watch_hands_sunshine_yellow_light;
         }
 
         @Override
@@ -218,7 +227,6 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                     // The user has started a different gesture or otherwise cancelled the tap.
                     break;
                 case TAP_TYPE_TAP:
-
                     //Todo: On tap change the current day while the count is less than seven after that we go back to the first day
                     // The user has completed the tap gesture.
 /*                    mTapCount++;
@@ -268,18 +276,18 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             if (!mAmbient) {
                 float secX = (float) Math.sin(secRot) * secLength;
                 float secY = (float) -Math.cos(secRot) * secLength;
-                mHandPaint.setShader(new LinearGradient(centerX + secX, centerY + secY, centerX, centerY, mResources.getColor(R.color.sunshine_yellow), mResources.getColor(R.color.sunshine_yellow_light), Shader.TileMode.MIRROR));
+                mHandPaint.setShader(new LinearGradient(centerX + secX, centerY + secY, centerX, centerY, mResources.getColor(mWatchHandDarkColor), mResources.getColor(mWatchHandLightColor), Shader.TileMode.MIRROR));
                 canvas.drawLine(centerX, centerY, centerX + secX, centerY + secY, mHandPaint);
             }
 
             float minX = (float) Math.sin(minRot) * minLength;
             float minY = (float) -Math.cos(minRot) * minLength;
-            mHandPaint.setShader(new LinearGradient(centerX + minX, centerY + minY, centerX, centerY, mResources.getColor(R.color.sunshine_yellow), mResources.getColor(R.color.sunshine_yellow_light), Shader.TileMode.MIRROR));
+            mHandPaint.setShader(new LinearGradient(centerX + minX, centerY + minY, centerX, centerY, mResources.getColor(mWatchHandDarkColor), mResources.getColor(mWatchHandLightColor), Shader.TileMode.MIRROR));
             canvas.drawLine(centerX, centerY, centerX + minX, centerY + minY, mHandPaint);
 
             float hrX = (float) Math.sin(hrRot) * hrLength;
             float hrY = (float) -Math.cos(hrRot) * hrLength;
-            mHandPaint.setShader(new LinearGradient(centerX + hrX, centerY + hrY, centerX, centerY, mResources.getColor(R.color.sunshine_yellow), mResources.getColor(R.color.sunshine_yellow_light), Shader.TileMode.MIRROR));
+            mHandPaint.setShader(new LinearGradient(centerX + hrX, centerY + hrY, centerX, centerY, mResources.getColor(mWatchHandDarkColor), mResources.getColor(mWatchHandLightColor), Shader.TileMode.MIRROR));
             canvas.drawLine(centerX, centerY, centerX + hrX, centerY + hrY, mHandPaint);
 
             float sunshineBitmapX = canvas.getWidth() - mSunOffset;
@@ -289,8 +297,10 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 canvas.drawBitmap(mWeatherBitmap, sunshineBitmapX, sunshineBitmapY, null);
             }
 
-            canvas.drawText(mDailyHighTemperature  + (char) 0x00B0,(centerX-25) - mTempHighLowOffset,centerY + mTempHighLowOffset, mTemperaturePaint);
-            canvas.drawText(mDailyLowTemperature  + (char) 0x00B0,(centerX -25) + mTempHighLowOffset,centerY + mTempHighLowOffset, mTemperaturePaint);
+            if(mDailyHighTemperature != null){
+                canvas.drawText(mDailyHighTemperature  + (char) 0x00B0,(centerX-25) - mTempHighLowOffset,centerY + mTempHighLowOffset, mTemperaturePaint);
+                canvas.drawText(mDailyLowTemperature  + (char) 0x00B0,(centerX -25) + mTempHighLowOffset,centerY + mTempHighLowOffset, mTemperaturePaint);
+            }
         }
 
         public float GetSin(float degAngle) {
@@ -367,6 +377,14 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                         - (timeMs % INTERACTIVE_UPDATE_RATE_MS);
                 mUpdateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, delayMs);
             }
+        }
+
+        @Override
+        public void onDataChanged(DataEventBuffer dataEventBuffer) {
+
+            String test = dataEventBuffer.get(0).toString();
+            mDailyLowTemperature = test;
+
         }
 
         private class LoadWeatherDataTask extends AsyncTask<String, Void, String> {
@@ -524,10 +542,9 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                         mDailyHighTemperature = String.valueOf(high);
                         mDailyLowTemperature = String.valueOf(low);
 
-                        int weatherIconId = getIconResourceForWeatherCondition(weatherId);
+                        int weatherIconId = getIconResourceForWeatherCondition(200);
                         if(weatherIconId != -1)
                             mWeatherBitmap = BitmapFactory.decodeResource(mResources, weatherIconId);
-
 
                     }
                 }catch (JSONException ex){
@@ -539,30 +556,80 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 // Based on weather code data found at:
                 // http://bugs.openweathermap.org/projects/api/wiki/Weather_Condition_Codes
                 if (weatherId >= 200 && weatherId <= 232) {
+                    setWeatherUI(Constants.WeatherTypes.Stormy);
                     return R.drawable.ic_storm;
                 } else if (weatherId >= 300 && weatherId <= 321) {
+                    setWeatherUI(Constants.WeatherTypes.Rainy);
                     return R.drawable.ic_light_rain;
                 } else if (weatherId >= 500 && weatherId <= 504) {
-                    mBackgroundPaint.setColor(mResources.getColor());
+                    setWeatherUI(Constants.WeatherTypes.Rainy);
                     return R.drawable.ic_rain;
                 } else if (weatherId == 511) {
+                    setWeatherUI(Constants.WeatherTypes.Snowing);
                     return R.drawable.ic_snow;
                 } else if (weatherId >= 520 && weatherId <= 531) {
+                    setWeatherUI(Constants.WeatherTypes.Rainy);
                     return R.drawable.ic_rain;
                 } else if (weatherId >= 600 && weatherId <= 622) {
+                    setWeatherUI(Constants.WeatherTypes.Snowing);
                     return R.drawable.ic_snow;
                 } else if (weatherId >= 701 && weatherId <= 761) {
+                    setWeatherUI(Constants.WeatherTypes.Foggy);
                     return R.drawable.ic_fog;
                 } else if (weatherId == 761 || weatherId == 781) {
+                    setWeatherUI(Constants.WeatherTypes.Stormy);
                     return R.drawable.ic_storm;
                 } else if (weatherId == 800) {
+                    setWeatherUI(Constants.WeatherTypes.Clear);
                     return R.drawable.ic_clear;
                 } else if (weatherId == 801) {
+                    setWeatherUI(Constants.WeatherTypes.LightCloudy);
                     return R.drawable.ic_light_clouds;
                 } else if (weatherId >= 802 && weatherId <= 804) {
+                    setWeatherUI(Constants.WeatherTypes.Cloudy);
                     return R.drawable.ic_cloudy;
                 }
                 return -1;
+            }
+
+            /* Sets the weather UI components (Ex: watchface, hands, and number colors) for each different weather types */
+            public void setWeatherUI(Constants.WeatherTypes weathertype) {
+                if (weathertype == Constants.WeatherTypes.Clear) {
+                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_sunny));
+                    mWatchHandDarkColor = mResources.getColor(R.color.watch_hands_sunshine_yellow);
+                    mWatchHandLightColor = mResources.getColor(R.color.watch_hands_sunshine_yellow_light);
+                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_color));
+                } else if (weathertype == Constants.WeatherTypes.Rainy) {
+                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_rainy));
+                    mWatchHandDarkColor = mResources.getColor(R.color.watch_hands_rain_blue);
+                    mWatchHandLightColor = mResources.getColor(R.color.watch_hands_rain_blue_light);
+                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_rainy_color)); //Todo: change color
+                } else if (weathertype == Constants.WeatherTypes.Stormy) {
+                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_stormy));
+                    mWatchHandDarkColor = mResources.getColor(R.color.watch_hands_storm_grey);
+                    mWatchHandLightColor = mResources.getColor(R.color.watch_hands_storm_white);
+                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_stormy_color)); //Todo: change color
+                } else if (weathertype == Constants.WeatherTypes.Cloudy) {
+                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_cloudy));//Todo: change color
+                    mWatchHandDarkColor = mResources.getColor(R.color.watch_hands_cloudy_grey);//Todo: change color
+                    mWatchHandLightColor = mResources.getColor(R.color.watch_hands_cloudy_white);//Todo: change color
+                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_cloudy_color)); //Todo: change color
+                } else if (weathertype == Constants.WeatherTypes.Foggy) {
+                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_foggy));//Todo: change color
+                    mWatchHandDarkColor = mResources.getColor(R.color.watch_hands_foggy_white);//Todo: change color
+                    mWatchHandLightColor = mResources.getColor(R.color.watch_hands_foggy_white_light);//Todo: change color
+                    mHandPaint.setColor(mResources.getColor(R.color.watch_hands_foggy_white)); //Todo: change color
+                } else if (weathertype == Constants.WeatherTypes.Snowing) {
+                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_cloudy));//Todo: change color
+                    mWatchHandDarkColor = mResources.getColor(R.color.watch_hands_cloudy_grey);//Todo: change color
+                    mWatchHandLightColor = mResources.getColor(R.color.watch_hands_cloudy_white);//Todo: change color
+                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_snowing_color)); //Todo: change color
+                } else if (weathertype == Constants.WeatherTypes.LightCloudy) {
+                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_cloudy));
+                    mWatchHandDarkColor = R.color.watch_hands_cloudy_grey;
+                    mWatchHandLightColor = R.color.watch_hands_cloudy_white;
+                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_cloudy_color)); //Todo: change color
+                }
             }
         }
     }
