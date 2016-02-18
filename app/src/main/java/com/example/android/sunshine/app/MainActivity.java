@@ -52,7 +52,7 @@ import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 
-public class MainActivity extends AppCompatActivity implements ForecastFragment.Callback,GoogleApiClient.ConnectionCallbacks,GoogleApiClient.OnConnectionFailedListener {
+public class MainActivity extends AppCompatActivity implements ForecastFragment.Callback {
 
     private final String LOG_TAG = MainActivity.class.getSimpleName();
     private static final String DETAILFRAGMENT_TAG = "DFTAG";
@@ -63,9 +63,6 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
     private String mLocation;
 
     private static final String START_ACTIVITY = "/start_activity";
-
-    public GoogleApiClient mGoogleApiClient;
-    private int count = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -127,12 +124,6 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
                 startService(intent);
             }
         }
-
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addApi(Wearable.API)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .build();
     }
 
     @Override
@@ -174,12 +165,6 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
             }
             mLocation = location;
         }
-    }
-
-    @Override
-    public void onPause(){
-        super.onPause();
-        mGoogleApiClient.disconnect();
     }
 
     @Override
@@ -225,34 +210,5 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
             return false;
         }
         return true;
-    }
-
-    @Override
-    public void onConnected(Bundle bundle) {
-        PutDataMapRequest dataMap = PutDataMapRequest.create("/forcast");
-        dataMap.getDataMap().putInt("High temp",23);
-
-        PutDataRequest request = dataMap.asPutDataRequest();
-        Wearable.DataApi.putDataItem(mGoogleApiClient,request)
-                .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
-                    @Override
-                    public void onResult(DataApi.DataItemResult dataItemResult) {
-                        if(dataItemResult.getStatus().isSuccess()){
-                            //putting data to watch was successful
-                        } else if (!dataItemResult.getStatus().isSuccess()){
-                            //putting data to watch item failed
-                        }
-                    }
-                });
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-
-    }
-
-    @Override
-    public void onConnectionFailed(ConnectionResult connectionResult) {
-        String result = connectionResult.getErrorMessage();
     }
 }
