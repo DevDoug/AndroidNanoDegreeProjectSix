@@ -77,7 +77,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
     private final int[] mClockNumbers = new int[]{12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     public int mClockNumberPadding = 30;
     public int mIconScaleFactor = 6;
-    public int mSunOffset = 80;
+    public int mSunOffset = 60;
     public final String LOG_TAG = SunshineWatchFace.class.getSimpleName();
     public static float DEFAULT_LATLONG = 0F;
     public String mDailyHighTemperature;
