@@ -1,1 +1,1 @@
-include ':app', ':SunshineWear'
+include ':app', ':SunshineWear', ':sharedassets'

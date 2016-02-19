@@ -14,7 +14,7 @@ android {
     buildToolsVersion "23.0.2"
     defaultConfig {
         applicationId "com.example.android.sunshine.app"
-        minSdkVersion 10
+        minSdkVersion 21
         targetSdkVersion 23
         versionCode 1
         versionName "1.0"
@@ -36,6 +36,7 @@ android {
 dependencies {
     wearApp project(':SunshineWear')
     compile fileTree(include: ['*.jar'], dir: 'libs')
+    compile project(':sharedassets')
     compile 'com.github.bumptech.glide:glide:3.5.2'
     compile 'com.android.support:support-annotations:23.1.1'
     compile 'com.android.support:gridlayout-v7:23.1.1'

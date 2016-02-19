@@ -40,6 +40,7 @@ import android.text.format.Time;
 import android.util.Log;
 import android.view.SurfaceHolder;
 
+import com.example.sharedassets.SharedUtility;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
@@ -389,8 +390,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 DataItem dataItem = event.getDataItem();
                 if(mPath.equals(dataItem.getUri().getPath())) {
                     DataMap dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
-                    mDailyHighTemperature = String.valueOf(dataMap.getDouble("High Temp"));
-                    mDailyLowTemperature = String.valueOf(dataMap.getDouble("Low Temp"));
+                    mDailyHighTemperature = String.valueOf(dataMap.getDouble(SharedUtility.HIGH_TEMP_KEY));
+                    mDailyLowTemperature = String.valueOf(dataMap.getDouble(SharedUtility.LOW_TEMP_KEY));
                 }
             }
         }

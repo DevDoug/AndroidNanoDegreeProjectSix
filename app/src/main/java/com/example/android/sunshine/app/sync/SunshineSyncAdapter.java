@@ -36,6 +36,7 @@ import com.example.android.sunshine.app.R;
 import com.example.android.sunshine.app.Utility;
 import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.muzei.WeatherMuzeiSource;
+import com.example.sharedassets.SharedUtility;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
@@ -681,8 +682,8 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
     @Override
     public void onConnected(Bundle bundle) {
         PutDataMapRequest dataMap = PutDataMapRequest.create("/forcast");
-        dataMap.getDataMap().putDouble("High temp", mTopTemp); // send the current temperature to wearable for display
-        dataMap.getDataMap().putDouble("Low temp",mLowTemp);
+        dataMap.getDataMap().putDouble(SharedUtility.HIGH_TEMP_KEY, mTopTemp); // send the current temperature to wearable for display
+        dataMap.getDataMap().putDouble(SharedUtility.LOW_TEMP_KEY,mLowTemp);
 
         PutDataRequest request = dataMap.asPutDataRequest();
         Wearable.DataApi.putDataItem(mGoogleApiClient,request)
