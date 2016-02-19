@@ -3,33 +3,33 @@
 
     <!-- Rainy colors-->
     <color name="primary_rainy">#212c3e</color>
-    <color name="watch_number_rainy_color">#727272</color>
+    <color name="watch_number_rainy_color">#E3F2FD</color>
     <color name="watch_hands_rain_blue">#03A9F4</color>
     <color name="watch_hands_rain_blue_light">#81D4FA</color>
 
     <!-- Stormy colors-->
     <color name="primary_stormy">#2c2c2e</color>
-    <color name="watch_number_stormy_color">#727272</color>
+    <color name="watch_number_stormy_color">#FAFAFA</color>
     <color name="watch_hands_storm_grey">#9E9E9E</color>
     <color name="watch_hands_storm_white">#EEEEEE</color>
 
     <!-- Cloudy colors-->
-    <color name="primary_cloudy">#2c2c2e</color>
-    <color name="watch_number_cloudy_color">#727272</color>
-    <color name="watch_hands_cloudy_grey">#9E9E9E</color>
-    <color name="watch_hands_cloudy_white">#EEEEEE</color>
+    <color name="primary_cloudy">#ebe5c5</color>
+    <color name="watch_number_cloudy_color">#B0BEC5</color>
+    <color name="watch_hands_cloudy_grey">#fffce0</color>
+    <color name="watch_hands_cloudy_white">#2e466c</color>
 
     <!-- Snowing colors -->
     <color name="primary_snowing">#ffffff</color>
     <color name="watch_number_snowing_color">#727272</color>
-    <color name="watch_hands_snowing_white">#ffffff</color>
-    <color name="watch_hands_snowing_white_light">#ffffff</color>
+    <color name="watch_hands_snowing_white">#89c9ef</color>
+    <color name="watch_hands_snowing_white_light">#00359b</color>
 
     <!-- Foggy colors -->
-    <color name="primary_foggy">#ffffff</color>
-    <color name="watch_number_foggy_color">#727272</color>
-    <color name="watch_hands_foggy_white">#ffffff</color>
-    <color name="watch_hands_foggy_white_light">#ffffff</color>
+    <color name="primary_foggy">#EEEEEE</color>
+    <color name="watch_number_foggy_color">#263238</color>
+    <color name="watch_hands_foggy_white">#FAFAFA</color>
+    <color name="watch_hands_foggy_white_light">#616161</color>
 
     <!--Sunshine colors-->
     <color name="primary_sunny">#03A9F4</color>

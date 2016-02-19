@@ -382,8 +382,8 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         @Override
         public void onDataChanged(DataEventBuffer dataEventBuffer) {
 
-            String test = dataEventBuffer.get(0).toString();
-            mDailyLowTemperature = test;
+/*            String test = dataEventBuffer.get(0).toString();
+            mDailyLowTemperature = test;*/
 
         }
 
@@ -542,7 +542,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                         mDailyHighTemperature = String.valueOf(high);
                         mDailyLowTemperature = String.valueOf(low);
 
-                        int weatherIconId = getIconResourceForWeatherCondition(200);
+                        int weatherIconId = getIconResourceForWeatherCondition(weatherId);
                         if(weatherIconId != -1)
                             mWeatherBitmap = BitmapFactory.decodeResource(mResources, weatherIconId);
 
@@ -596,39 +596,39 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             public void setWeatherUI(Constants.WeatherTypes weathertype) {
                 if (weathertype == Constants.WeatherTypes.Clear) {
                     mBackgroundPaint.setColor(mResources.getColor(R.color.primary_sunny));
-                    mWatchHandDarkColor = mResources.getColor(R.color.watch_hands_sunshine_yellow);
-                    mWatchHandLightColor = mResources.getColor(R.color.watch_hands_sunshine_yellow_light);
+                    mWatchHandDarkColor = R.color.watch_hands_sunshine_yellow;
+                    mWatchHandLightColor = R.color.watch_hands_sunshine_yellow_light;
                     mHandPaint.setColor(mResources.getColor(R.color.watch_number_color));
                 } else if (weathertype == Constants.WeatherTypes.Rainy) {
                     mBackgroundPaint.setColor(mResources.getColor(R.color.primary_rainy));
-                    mWatchHandDarkColor = mResources.getColor(R.color.watch_hands_rain_blue);
-                    mWatchHandLightColor = mResources.getColor(R.color.watch_hands_rain_blue_light);
-                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_rainy_color)); //Todo: change color
+                    mWatchHandDarkColor = R.color.watch_hands_rain_blue;
+                    mWatchHandLightColor = R.color.watch_hands_rain_blue_light;
+                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_rainy_color));
                 } else if (weathertype == Constants.WeatherTypes.Stormy) {
                     mBackgroundPaint.setColor(mResources.getColor(R.color.primary_stormy));
-                    mWatchHandDarkColor = mResources.getColor(R.color.watch_hands_storm_grey);
-                    mWatchHandLightColor = mResources.getColor(R.color.watch_hands_storm_white);
-                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_stormy_color)); //Todo: change color
+                    mWatchHandDarkColor = R.color.watch_hands_storm_grey;
+                    mWatchHandLightColor = R.color.watch_hands_storm_white;
+                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_stormy_color));
                 } else if (weathertype == Constants.WeatherTypes.Cloudy) {
-                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_cloudy));//Todo: change color
-                    mWatchHandDarkColor = mResources.getColor(R.color.watch_hands_cloudy_grey);//Todo: change color
-                    mWatchHandLightColor = mResources.getColor(R.color.watch_hands_cloudy_white);//Todo: change color
-                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_cloudy_color)); //Todo: change color
+                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_cloudy));
+                    mWatchHandDarkColor = R.color.watch_hands_cloudy_grey;
+                    mWatchHandLightColor = R.color.watch_hands_cloudy_white;
+                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_cloudy_color));
                 } else if (weathertype == Constants.WeatherTypes.Foggy) {
-                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_foggy));//Todo: change color
-                    mWatchHandDarkColor = mResources.getColor(R.color.watch_hands_foggy_white);//Todo: change color
-                    mWatchHandLightColor = mResources.getColor(R.color.watch_hands_foggy_white_light);//Todo: change color
-                    mHandPaint.setColor(mResources.getColor(R.color.watch_hands_foggy_white)); //Todo: change color
+                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_foggy));
+                    mWatchHandDarkColor = R.color.watch_hands_foggy_white;
+                    mWatchHandLightColor = R.color.watch_hands_foggy_white_light;
+                    mHandPaint.setColor(mResources.getColor(R.color.watch_hands_foggy_white));
                 } else if (weathertype == Constants.WeatherTypes.Snowing) {
-                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_cloudy));//Todo: change color
-                    mWatchHandDarkColor = mResources.getColor(R.color.watch_hands_cloudy_grey);//Todo: change color
-                    mWatchHandLightColor = mResources.getColor(R.color.watch_hands_cloudy_white);//Todo: change color
-                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_snowing_color)); //Todo: change color
+                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_snowing));
+                    mWatchHandDarkColor = R.color.watch_hands_snowing_white;
+                    mWatchHandLightColor = R.color.watch_hands_snowing_white_light;
+                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_snowing_color));
                 } else if (weathertype == Constants.WeatherTypes.LightCloudy) {
                     mBackgroundPaint.setColor(mResources.getColor(R.color.primary_cloudy));
                     mWatchHandDarkColor = R.color.watch_hands_cloudy_grey;
                     mWatchHandLightColor = R.color.watch_hands_cloudy_white;
-                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_cloudy_color)); //Todo: change color
+                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_cloudy_color));
                 }
             }
         }
