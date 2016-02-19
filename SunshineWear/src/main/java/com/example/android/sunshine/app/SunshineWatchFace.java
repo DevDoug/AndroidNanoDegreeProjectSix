@@ -41,7 +41,11 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 
 import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.DataMapItem;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -86,9 +90,9 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
     public int weatherIconID = 0; //default to sun
     public int mWatchHandDarkColor;
     public int mWatchHandLightColor;
-
-
     Resources mResources;
+
+    public String mPath = "/forcast";
 
     @Override
     public Engine onCreateEngine() {
@@ -380,11 +384,15 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         }
 
         @Override
-        public void onDataChanged(DataEventBuffer dataEventBuffer) {
-
-/*            String test = dataEventBuffer.get(0).toString();
-            mDailyLowTemperature = test;*/
-
+        public void onDataChanged(DataEventBuffer dataEvents) {
+            for(DataEvent event : dataEvents) {
+                DataItem dataItem = event.getDataItem();
+                if(mPath.equals(dataItem.getUri().getPath())) {
+                    DataMap dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
+                    mDailyHighTemperature = String.valueOf(dataMap.getDouble("High Temp"));
+                    mDailyLowTemperature = String.valueOf(dataMap.getDouble("Low Temp"));
+                }
+            }
         }
 
         private class LoadWeatherDataTask extends AsyncTask<String, Void, String> {

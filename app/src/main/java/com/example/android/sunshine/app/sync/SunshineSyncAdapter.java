@@ -682,7 +682,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
     public void onConnected(Bundle bundle) {
         PutDataMapRequest dataMap = PutDataMapRequest.create("/forcast");
         dataMap.getDataMap().putDouble("High temp", mTopTemp); // send the current temperature to wearable for display
-        dataMap.getDataMap().putDouble("High temp",mLowTemp);
+        dataMap.getDataMap().putDouble("Low temp",mLowTemp);
 
         PutDataRequest request = dataMap.asPutDataRequest();
         Wearable.DataApi.putDataItem(mGoogleApiClient,request)
