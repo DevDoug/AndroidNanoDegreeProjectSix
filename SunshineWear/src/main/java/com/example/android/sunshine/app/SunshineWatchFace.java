@@ -121,6 +121,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         Paint mTemperaturePaint;
         boolean mAmbient;
         Time mTime;
+        MobileDataListener mDataListener;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -174,12 +175,13 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             mHandPaint.setColor(mResources.getColor(R.color.watch_number_color));
             mWeatherBitmap = BitmapFactory.decodeResource(mResources, 800); //clear icon to start
 
-            MobileDataListener dataListener = new MobileDataListener(this);
+            mDataListener = new MobileDataListener(this);
         }
 
         @Override
         public void onDestroy() {
             mUpdateTimeHandler.removeMessages(MSG_UPDATE_TIME);
+            mDataListener.mDataListener = null;
             super.onDestroy();
         }
 
