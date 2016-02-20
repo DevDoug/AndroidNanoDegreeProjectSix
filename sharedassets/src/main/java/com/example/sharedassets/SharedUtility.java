@@ -5,6 +5,7 @@ package com.example.sharedassets;
  */
 public class SharedUtility {
     public static final String FORECAST_PATH = "/forcast";
+    public static final String WEATHER_ID = "WeatherID";
     public static final String HIGH_TEMP_KEY = "High Temp";
     public static final String LOW_TEMP_KEY = "High Temp";
 }

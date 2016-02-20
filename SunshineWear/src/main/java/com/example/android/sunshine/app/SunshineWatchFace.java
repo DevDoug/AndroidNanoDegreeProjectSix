@@ -40,14 +40,7 @@ import android.text.format.Time;
 import android.util.Log;
 import android.view.SurfaceHolder;
 
-import com.example.sharedassets.SharedUtility;
-import com.google.android.gms.wearable.DataApi;
-import com.google.android.gms.wearable.DataEvent;
-import com.google.android.gms.wearable.DataEventBuffer;
-import com.google.android.gms.wearable.DataItem;
-import com.google.android.gms.wearable.DataMap;
-import com.google.android.gms.wearable.DataMapItem;
-
+import com.example.android.sunshine.app.data.MobileDataListener;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -85,6 +78,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
     public int mSunOffset = 60;
     public final String LOG_TAG = SunshineWatchFace.class.getSimpleName();
     public static float DEFAULT_LATLONG = 0F;
+    public Double mWeatherID;
     public String mDailyHighTemperature;
     public String mDailyLowTemperature;
     public int mTempHighLowOffset = 50;
@@ -92,8 +86,6 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
     public int mWatchHandDarkColor;
     public int mWatchHandLightColor;
     Resources mResources;
-
-    public String mPath = "/forcast";
 
     @Override
     public Engine onCreateEngine() {
@@ -120,7 +112,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         }
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine implements DataApi.DataListener {
+    private class Engine extends CanvasWatchFaceService.Engine implements MobileDataListener.dataRetrievedFromMobileListener {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
@@ -176,11 +168,13 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
             mTime = new Time();
 
-            LoadWeatherDataTask weatherDataTask = new LoadWeatherDataTask();
-            weatherDataTask.execute("");
-
+            mBackgroundPaint.setColor(mResources.getColor(R.color.primary_sunny));
             mWatchHandDarkColor = R.color.watch_hands_sunshine_yellow;
             mWatchHandLightColor = R.color.watch_hands_sunshine_yellow_light;
+            mHandPaint.setColor(mResources.getColor(R.color.watch_number_color));
+            mWeatherBitmap = BitmapFactory.decodeResource(mResources, 800); //clear icon to start
+
+            MobileDataListener dataListener = new MobileDataListener(this);
         }
 
         @Override
@@ -298,13 +292,13 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             float sunshineBitmapX = canvas.getWidth() - mSunOffset;
             float sunshineBitmapY = canvas.getHeight() - mSunOffset;
 
-            if(mWeatherBitmap != null){
+            if (mWeatherBitmap != null) {
                 canvas.drawBitmap(mWeatherBitmap, sunshineBitmapX, sunshineBitmapY, null);
             }
 
-            if(mDailyHighTemperature != null){
-                canvas.drawText(mDailyHighTemperature  + (char) 0x00B0,(centerX-25) - mTempHighLowOffset,centerY + mTempHighLowOffset, mTemperaturePaint);
-                canvas.drawText(mDailyLowTemperature  + (char) 0x00B0,(centerX -25) + mTempHighLowOffset,centerY + mTempHighLowOffset, mTemperaturePaint);
+            if (mDailyHighTemperature != null) {
+                canvas.drawText(mDailyHighTemperature + (char) 0x00B0, (centerX - 25) - mTempHighLowOffset, centerY + mTempHighLowOffset, mTemperaturePaint);
+                canvas.drawText(mDailyLowTemperature + (char) 0x00B0, (centerX - 25) + mTempHighLowOffset, centerY + mTempHighLowOffset, mTemperaturePaint);
             }
         }
 
@@ -385,260 +379,93 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         }
 
         @Override
-        public void onDataChanged(DataEventBuffer dataEvents) {
-            for(DataEvent event : dataEvents) {
-                DataItem dataItem = event.getDataItem();
-                if(mPath.equals(dataItem.getUri().getPath())) {
-                    DataMap dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
-                    mDailyHighTemperature = String.valueOf(dataMap.getDouble(SharedUtility.HIGH_TEMP_KEY));
-                    mDailyLowTemperature = String.valueOf(dataMap.getDouble(SharedUtility.LOW_TEMP_KEY));
-                }
-            }
+        public void updateWatchfaceUIWithData(double weatherID, String highTemp, String lowTemp) {
+            mWeatherID = weatherID;
+            mDailyHighTemperature = highTemp;
+            mDailyLowTemperature = lowTemp;
+            int weatherIconId = getIconResourceForWeatherCondition(mWeatherID);
+            if (weatherIconId != -1)
+                mWeatherBitmap = BitmapFactory.decodeResource(mResources, weatherIconId);
+
         }
 
-        private class LoadWeatherDataTask extends AsyncTask<String, Void, String> {
-
-            @Override
-            protected String doInBackground(String... string) {
-
-                String locationLatitude = String.valueOf(DEFAULT_LATLONG);
-                String locationLongitude = String.valueOf(DEFAULT_LATLONG);
-
-                // These two need to be declared outside the try/catch
-                // so that they can be closed in the finally block.
-                HttpURLConnection urlConnection = null;
-                BufferedReader reader = null;
-
-                // Will contain the raw JSON response as a string.
-                String forecastJsonStr = null;
-
-                String format = "json";
-                String units = "metric";
-                int numDays = 14;
-
-                try {
-                    // Construct the URL for the OpenWeatherMap query
-                    // Possible parameters are avaiable at OWM's forecast API page, at
-                    // http://openweathermap.org/API#forecast
-                    final String FORECAST_BASE_URL = "http://api.openweathermap.org/data/2.5/forecast/daily?";
-                    final String QUERY_PARAM = "q";
-                    final String LAT_PARAM = "lat";
-                    final String LON_PARAM = "lon";
-                    final String FORMAT_PARAM = "mode";
-                    final String UNITS_PARAM = "units";
-                    final String DAYS_PARAM = "cnt";
-                    final String APPID_PARAM = "APPID";
-
-                    Uri.Builder uriBuilder = Uri.parse(FORECAST_BASE_URL).buildUpon();
-
-                    uriBuilder.appendQueryParameter(LAT_PARAM, locationLatitude)
-                            .appendQueryParameter(LON_PARAM, locationLongitude);
-
-                    Uri builtUri = uriBuilder.appendQueryParameter(FORMAT_PARAM, format)
-                            .appendQueryParameter(UNITS_PARAM, units)
-                            .appendQueryParameter(DAYS_PARAM, Integer.toString(numDays))
-                            .appendQueryParameter(APPID_PARAM, "3b37debf4e1aba37f1a839423613be5b")
-                            .build();
-
-                    URL url = new URL(builtUri.toString());
-
-                    // Create the request to OpenWeatherMap, and open the connection
-                    urlConnection = (HttpURLConnection) url.openConnection();
-                    urlConnection.setRequestMethod("GET");
-                    urlConnection.connect();
-
-                    // Read the input stream into a String
-                    InputStream inputStream = urlConnection.getInputStream();
-                    StringBuffer buffer = new StringBuffer();
-                    if (inputStream == null) {
-                        // Nothing to do.
-                        return "";
-                    }
-                    reader = new BufferedReader(new InputStreamReader(inputStream));
-
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        // Since it's JSON, adding a newline isn't necessary (it won't affect parsing)
-                        // But it does make debugging a *lot* easier if you print out the completed
-                        // buffer for debugging.
-                        buffer.append(line + "\n");
-                    }
-
-                    if (buffer.length() == 0) {
-                        // Stream was empty.  No point in parsing.
-                        return "";
-                    }
-                    forecastJsonStr = buffer.toString();
-                    //getWeatherDataFromJson(forecastJsonStr, locationQuery);
-                } catch (IOException e) {
-                    Log.e(LOG_TAG, "Error ", e);
-                    // If the code didn't successfully get the weather data, there's no point in attempting
-                    // to parse it.
-                }  finally {
-                    if (urlConnection != null) {
-                        urlConnection.disconnect();
-                    }
-                    if (reader != null) {
-                        try {
-                            reader.close();
-                        } catch (final IOException e) {
-                            Log.e(LOG_TAG, "Error closing stream", e);
-                        }
-                    }
-                }
-                return forecastJsonStr;
+        public int getIconResourceForWeatherCondition(double weatherId) {
+            // Based on weather code data found at:
+            // http://bugs.openweathermap.org/projects/api/wiki/Weather_Condition_Codes
+            if (weatherId >= 200 && weatherId <= 232) {
+                setWeatherUI(Constants.WeatherTypes.Stormy);
+                return R.drawable.ic_storm;
+            } else if (weatherId >= 300 && weatherId <= 321) {
+                setWeatherUI(Constants.WeatherTypes.Rainy);
+                return R.drawable.ic_light_rain;
+            } else if (weatherId >= 500 && weatherId <= 504) {
+                setWeatherUI(Constants.WeatherTypes.Rainy);
+                return R.drawable.ic_rain;
+            } else if (weatherId == 511) {
+                setWeatherUI(Constants.WeatherTypes.Snowing);
+                return R.drawable.ic_snow;
+            } else if (weatherId >= 520 && weatherId <= 531) {
+                setWeatherUI(Constants.WeatherTypes.Rainy);
+                return R.drawable.ic_rain;
+            } else if (weatherId >= 600 && weatherId <= 622) {
+                setWeatherUI(Constants.WeatherTypes.Snowing);
+                return R.drawable.ic_snow;
+            } else if (weatherId >= 701 && weatherId <= 761) {
+                setWeatherUI(Constants.WeatherTypes.Foggy);
+                return R.drawable.ic_fog;
+            } else if (weatherId == 761 || weatherId == 781) {
+                setWeatherUI(Constants.WeatherTypes.Stormy);
+                return R.drawable.ic_storm;
+            } else if (weatherId == 800) {
+                setWeatherUI(Constants.WeatherTypes.Clear);
+                return R.drawable.ic_clear;
+            } else if (weatherId == 801) {
+                setWeatherUI(Constants.WeatherTypes.LightCloudy);
+                return R.drawable.ic_light_clouds;
+            } else if (weatherId >= 802 && weatherId <= 804) {
+                setWeatherUI(Constants.WeatherTypes.Cloudy);
+                return R.drawable.ic_cloudy;
             }
+            return -1;
+        }
 
-            @Override
-            public void onPostExecute(String result){
-                try {
-                    getWeatherDataFromJson(result);
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            private void getWeatherDataFromJson(String forecastJsonStr) throws JSONException {
-                // Weather information.  Each day's forecast info is an element of the "list" array.
-                final String OWM_LIST = "list";
-
-                // All temperatures are children of the "temp" object.
-                final String OWM_TEMPERATURE = "temp";
-                final String OWM_MAX = "max";
-                final String OWM_MIN = "min";
-
-                final String OWM_WEATHER = "weather";
-                final String OWM_DESCRIPTION = "main";
-                final String OWM_WEATHER_ID = "id";
-
-                final String OWM_MESSAGE_CODE = "cod";
-
-                try {
-                    JSONObject forecastJson = new JSONObject(forecastJsonStr);
-
-                    // do we have an error?
-                    if (forecastJson.has(OWM_MESSAGE_CODE)) {
-                        int errorCode = forecastJson.getInt(OWM_MESSAGE_CODE);
-
-                        switch (errorCode) {
-                            case HttpURLConnection.HTTP_OK:
-                                break;
-                        }
-                    }
-
-                    JSONArray weatherArray = forecastJson.getJSONArray(OWM_LIST);
-
-                    for (int i = 0; i < weatherArray.length(); i++) {
-                        double high;
-                        double low;
-
-                        String description;
-                        int weatherId;
-
-                        // Get the JSON object representing the day
-                        JSONObject dayForecast = weatherArray.getJSONObject(i);
-
-                        // Description is in a child array called "weather", which is 1 element long.
-                        // That element also contains a weather code.
-                        JSONObject weatherObject = dayForecast.getJSONArray(OWM_WEATHER).getJSONObject(0);
-                        weatherId = weatherObject.getInt(OWM_WEATHER_ID);
-
-                        // Temperatures are in a child object called "temp".  Try not to name variables
-                        // "temp" when working with temperature.  It confuses everybody.
-                        JSONObject temperatureObject = dayForecast.getJSONObject(OWM_TEMPERATURE);
-                        high = temperatureObject.getDouble(OWM_MAX);
-                        low = temperatureObject.getDouble(OWM_MIN);
-                        mDailyHighTemperature = String.valueOf(high);
-                        mDailyLowTemperature = String.valueOf(low);
-
-                        int weatherIconId = getIconResourceForWeatherCondition(weatherId);
-                        if(weatherIconId != -1)
-                            mWeatherBitmap = BitmapFactory.decodeResource(mResources, weatherIconId);
-
-                    }
-                }catch (JSONException ex){
-
-                }
-            }
-
-            public int getIconResourceForWeatherCondition(int weatherId) {
-                // Based on weather code data found at:
-                // http://bugs.openweathermap.org/projects/api/wiki/Weather_Condition_Codes
-                if (weatherId >= 200 && weatherId <= 232) {
-                    setWeatherUI(Constants.WeatherTypes.Stormy);
-                    return R.drawable.ic_storm;
-                } else if (weatherId >= 300 && weatherId <= 321) {
-                    setWeatherUI(Constants.WeatherTypes.Rainy);
-                    return R.drawable.ic_light_rain;
-                } else if (weatherId >= 500 && weatherId <= 504) {
-                    setWeatherUI(Constants.WeatherTypes.Rainy);
-                    return R.drawable.ic_rain;
-                } else if (weatherId == 511) {
-                    setWeatherUI(Constants.WeatherTypes.Snowing);
-                    return R.drawable.ic_snow;
-                } else if (weatherId >= 520 && weatherId <= 531) {
-                    setWeatherUI(Constants.WeatherTypes.Rainy);
-                    return R.drawable.ic_rain;
-                } else if (weatherId >= 600 && weatherId <= 622) {
-                    setWeatherUI(Constants.WeatherTypes.Snowing);
-                    return R.drawable.ic_snow;
-                } else if (weatherId >= 701 && weatherId <= 761) {
-                    setWeatherUI(Constants.WeatherTypes.Foggy);
-                    return R.drawable.ic_fog;
-                } else if (weatherId == 761 || weatherId == 781) {
-                    setWeatherUI(Constants.WeatherTypes.Stormy);
-                    return R.drawable.ic_storm;
-                } else if (weatherId == 800) {
-                    setWeatherUI(Constants.WeatherTypes.Clear);
-                    return R.drawable.ic_clear;
-                } else if (weatherId == 801) {
-                    setWeatherUI(Constants.WeatherTypes.LightCloudy);
-                    return R.drawable.ic_light_clouds;
-                } else if (weatherId >= 802 && weatherId <= 804) {
-                    setWeatherUI(Constants.WeatherTypes.Cloudy);
-                    return R.drawable.ic_cloudy;
-                }
-                return -1;
-            }
-
-            /* Sets the weather UI components (Ex: watchface, hands, and number colors) for each different weather types */
-            public void setWeatherUI(Constants.WeatherTypes weathertype) {
-                if (weathertype == Constants.WeatherTypes.Clear) {
-                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_sunny));
-                    mWatchHandDarkColor = R.color.watch_hands_sunshine_yellow;
-                    mWatchHandLightColor = R.color.watch_hands_sunshine_yellow_light;
-                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_color));
-                } else if (weathertype == Constants.WeatherTypes.Rainy) {
-                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_rainy));
-                    mWatchHandDarkColor = R.color.watch_hands_rain_blue;
-                    mWatchHandLightColor = R.color.watch_hands_rain_blue_light;
-                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_rainy_color));
-                } else if (weathertype == Constants.WeatherTypes.Stormy) {
-                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_stormy));
-                    mWatchHandDarkColor = R.color.watch_hands_storm_grey;
-                    mWatchHandLightColor = R.color.watch_hands_storm_white;
-                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_stormy_color));
-                } else if (weathertype == Constants.WeatherTypes.Cloudy) {
-                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_cloudy));
-                    mWatchHandDarkColor = R.color.watch_hands_cloudy_grey;
-                    mWatchHandLightColor = R.color.watch_hands_cloudy_white;
-                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_cloudy_color));
-                } else if (weathertype == Constants.WeatherTypes.Foggy) {
-                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_foggy));
-                    mWatchHandDarkColor = R.color.watch_hands_foggy_white;
-                    mWatchHandLightColor = R.color.watch_hands_foggy_white_light;
-                    mHandPaint.setColor(mResources.getColor(R.color.watch_hands_foggy_white));
-                } else if (weathertype == Constants.WeatherTypes.Snowing) {
-                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_snowing));
-                    mWatchHandDarkColor = R.color.watch_hands_snowing_white;
-                    mWatchHandLightColor = R.color.watch_hands_snowing_white_light;
-                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_snowing_color));
-                } else if (weathertype == Constants.WeatherTypes.LightCloudy) {
-                    mBackgroundPaint.setColor(mResources.getColor(R.color.primary_cloudy));
-                    mWatchHandDarkColor = R.color.watch_hands_cloudy_grey;
-                    mWatchHandLightColor = R.color.watch_hands_cloudy_white;
-                    mHandPaint.setColor(mResources.getColor(R.color.watch_number_cloudy_color));
-                }
+        /* Sets the weather UI components (Ex: watchface, hands, and number colors) for each different weather types */
+        public void setWeatherUI(Constants.WeatherTypes weathertype) {
+            if (weathertype == Constants.WeatherTypes.Clear) {
+                mBackgroundPaint.setColor(mResources.getColor(R.color.primary_sunny));
+                mWatchHandDarkColor = R.color.watch_hands_sunshine_yellow;
+                mWatchHandLightColor = R.color.watch_hands_sunshine_yellow_light;
+                mHandPaint.setColor(mResources.getColor(R.color.watch_number_color));
+            } else if (weathertype == Constants.WeatherTypes.Rainy) {
+                mBackgroundPaint.setColor(mResources.getColor(R.color.primary_rainy));
+                mWatchHandDarkColor = R.color.watch_hands_rain_blue;
+                mWatchHandLightColor = R.color.watch_hands_rain_blue_light;
+                mHandPaint.setColor(mResources.getColor(R.color.watch_number_rainy_color));
+            } else if (weathertype == Constants.WeatherTypes.Stormy) {
+                mBackgroundPaint.setColor(mResources.getColor(R.color.primary_stormy));
+                mWatchHandDarkColor = R.color.watch_hands_storm_grey;
+                mWatchHandLightColor = R.color.watch_hands_storm_white;
+                mHandPaint.setColor(mResources.getColor(R.color.watch_number_stormy_color));
+            } else if (weathertype == Constants.WeatherTypes.Cloudy) {
+                mBackgroundPaint.setColor(mResources.getColor(R.color.primary_cloudy));
+                mWatchHandDarkColor = R.color.watch_hands_cloudy_grey;
+                mWatchHandLightColor = R.color.watch_hands_cloudy_white;
+                mHandPaint.setColor(mResources.getColor(R.color.watch_number_cloudy_color));
+            } else if (weathertype == Constants.WeatherTypes.Foggy) {
+                mBackgroundPaint.setColor(mResources.getColor(R.color.primary_foggy));
+                mWatchHandDarkColor = R.color.watch_hands_foggy_white;
+                mWatchHandLightColor = R.color.watch_hands_foggy_white_light;
+                mHandPaint.setColor(mResources.getColor(R.color.watch_hands_foggy_white));
+            } else if (weathertype == Constants.WeatherTypes.Snowing) {
+                mBackgroundPaint.setColor(mResources.getColor(R.color.primary_snowing));
+                mWatchHandDarkColor = R.color.watch_hands_snowing_white;
+                mWatchHandLightColor = R.color.watch_hands_snowing_white_light;
+                mHandPaint.setColor(mResources.getColor(R.color.watch_number_snowing_color));
+            } else if (weathertype == Constants.WeatherTypes.LightCloudy) {
+                mBackgroundPaint.setColor(mResources.getColor(R.color.primary_cloudy));
+                mWatchHandDarkColor = R.color.watch_hands_cloudy_grey;
+                mWatchHandLightColor = R.color.watch_hands_cloudy_white;
+                mHandPaint.setColor(mResources.getColor(R.color.watch_number_cloudy_color));
             }
         }
     }

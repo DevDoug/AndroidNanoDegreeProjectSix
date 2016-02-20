@@ -72,6 +72,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
     private static final int WEATHER_NOTIFICATION_ID = 3004;
 
     public GoogleApiClient mGoogleApiClient;
+    public double mWeatherID;
     public double mTopTemp;
     public double mLowTemp;
 
@@ -355,6 +356,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
                 high = temperatureObject.getDouble(OWM_MAX);
                 low = temperatureObject.getDouble(OWM_MIN);
 
+                mWeatherID = weatherId;
                 mTopTemp = high;
                 mLowTemp = low;
 
@@ -682,8 +684,9 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
     @Override
     public void onConnected(Bundle bundle) {
         PutDataMapRequest dataMap = PutDataMapRequest.create("/forcast");
+        dataMap.getDataMap().putDouble(SharedUtility.WEATHER_ID, mWeatherID);
         dataMap.getDataMap().putDouble(SharedUtility.HIGH_TEMP_KEY, mTopTemp); // send the current temperature to wearable for display
-        dataMap.getDataMap().putDouble(SharedUtility.LOW_TEMP_KEY,mLowTemp);
+        dataMap.getDataMap().putDouble(SharedUtility.LOW_TEMP_KEY, mLowTemp);
 
         PutDataRequest request = dataMap.asPutDataRequest();
         Wearable.DataApi.putDataItem(mGoogleApiClient,request)
